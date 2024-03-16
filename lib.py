@@ -54,6 +54,8 @@ download_packages(["pygame"])
 
 import pygame
 import math
-from classes import Button
+import tkinter as tk
+from tkinter import Canvas
 from constants import *
-from functions import *
+from classes import *
+# from functions import *
