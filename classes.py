@@ -18,7 +18,7 @@ class Paint:
         self.canvas = Canvas(
             self.master, width=REAL_WIDTH, height=REAL_HEIGHT, bg="white"
         )
-        self.canvas.grid(column=0, columnspan=6, row=0)
+        self.canvas.grid(column=0, columnspan=5, row=0)
 
         self.button1 = tk.Button(
             self.master,
@@ -50,19 +50,134 @@ class Paint:
 
         self.button5 = tk.Button(
             self.master,
-            text="Transform",
-            command=lambda *args: self.set_draw_mode("pixel"),
+            text="Clear",
+            command=lambda *args: self.clear_canvas(),
         )
         self.button5.grid(column=4, row=1)
 
         self.button6 = tk.Button(
             self.master,
-            text="Clear",
-            command=lambda *args: self.clear_canvas(),
+            text="Translate",
+            command=lambda *args: self.create_translate_dialog(),
         )
-        self.button6.grid(column=5, row=1)
+        self.button6.grid(column=0, row=2)
+
+        self.button7 = tk.Button(
+            self.master,
+            text="Rotate",
+            command=lambda *args: self.create_rotate_dialog(),
+        )
+        self.button7.grid(column=1, row=2)
+
+        self.button8 = tk.Button(
+            self.master,
+            text="Scale",
+            command=lambda *args: self.create_rotate_dialog(),
+        )
+        self.button8.grid(column=2, row=2)
+
+        self.button9 = tk.Button(
+            self.master,
+            text="Reflect",
+            command=lambda *args: self.set_draw_mode("pixel"),
+        )
+        self.button9.grid(column=3, row=2)
+
 
         self.canvas.bind("<Button-1>", self.on_click)
+
+    # Create a dialog with x and y input and a confirm button
+    # that opens when the 'Translate' button is clicked
+    # All structures on canvas should be moved
+    def create_translate_dialog(self):
+        dialog = tk.Toplevel(self.master)
+        dialog.title("Translate")
+
+        x_label = tk.Label(dialog, text="X:")
+        x_label.grid(column=0, row=0)
+
+        x_entry = tk.Entry(dialog)
+        x_entry.grid(column=1, row=0)
+
+        y_label = tk.Label(dialog, text="Y:")
+        y_label.grid(column=0, row=1)
+
+        y_entry = tk.Entry(dialog)
+        y_entry.grid(column=1, row=1)
+
+        confirm_button = tk.Button(
+            dialog,
+            text="Confirm",
+            command=lambda *args: self.translate_structures(
+                int(x_entry.get()), int(y_entry.get())
+            ),
+        )
+        confirm_button.grid(column=0, columnspan=2, row=2)
+        
+    def translate_structures(self, x, y):
+        self.create_canvas()
+        for structure in self.structures:
+            structure.translate(x, y)
+            structure.draw(self.canvas)
+
+    # rotation
+    def create_rotate_dialog(self):
+        dialog = tk.Toplevel(self.master)
+        dialog.title("Rotate")
+
+        angle_label = tk.Label(dialog, text="Angle:")
+        angle_label.grid(column=0, row=0)
+
+        angle_entry = tk.Entry(dialog)
+        angle_entry.grid(column=1, row=0)
+
+        confirm_button = tk.Button(
+            dialog,
+            text="Confirm",
+            command=lambda *args: self.rotate_structures(
+                int(angle_entry.get())
+            ),
+        )
+        confirm_button.grid(column=0, columnspan=2, row=1)
+    
+    def rotate_structures(self, angle):
+        self.create_canvas()
+        for structure in self.structures:
+            structure.rotate(angle)
+            structure.draw(self.canvas)
+    
+    # scale
+    def create_scale_dialog(self):
+        dialog = tk.Toplevel(self.master)
+        dialog.title("Scale")
+
+        x_label = tk.Label(dialog, text="X:")
+        x_label.grid(column=0, row=0)
+
+        x_entry = tk.Entry(dialog)
+        x_entry.grid(column=1, row=0)
+
+        y_label = tk.Label(dialog, text="Y:")
+        y_label.grid(column=0, row=1)
+
+        y_entry = tk.Entry(dialog)
+        y_entry.grid(column=1, row=1)
+
+        confirm_button = tk.Button(
+            dialog,
+            text="Confirm",
+            command=lambda *args: self.scale_structures(
+                int(x_entry.get()), int(y_entry.get())
+            ),
+        )
+        confirm_button.grid(column=0, columnspan=2, row=2)
+
+    def scale_structures(self, x, y):
+        self.create_canvas()
+        for structure in self.structures:
+            structure.scale(x, y)
+            structure.draw(self.canvas)    
+
 
     def clear_canvas(self):
         self.structures = []
@@ -148,6 +263,18 @@ class Structure:
     def draw(self, canvas):
         for pixel in self.pixels:
             pixel.draw(canvas)
+
+    def translate(self, x, y):
+        for pixel in self.pixels:
+            pixel.x += x
+            pixel.y += y
+
+    def rotate(self, angle):
+        for pixel in self.pixels:
+            x = pixel.x
+            y = pixel.y
+            pixel.x = round(x * math.cos(angle) - y * math.sin(angle))
+            pixel.y = round(x * math.sin(angle) + y * math.cos(angle))
 
 
 class Line(Structure):
