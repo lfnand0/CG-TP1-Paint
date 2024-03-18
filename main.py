@@ -2,6 +2,7 @@ from lib import *
 
 def main():
     root = tk.Tk()
+    root.resizable(False, False)
     app = Paint(root)
     root.mainloop()
 

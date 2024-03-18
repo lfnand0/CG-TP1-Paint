@@ -55,7 +55,7 @@ download_packages(["pygame"])
 import pygame
 import math
 import tkinter as tk
-from tkinter import Canvas
+from tkinter.colorchooser import askcolor
 from constants import *
 from classes import *
 # from functions import *
