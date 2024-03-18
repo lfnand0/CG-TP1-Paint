@@ -468,7 +468,6 @@ class Structure:
             self.pixel.translate(center_x, center_y)
 
     def clip(self, start, end, algorithm):
-        print("aaaa")
         new_pixels = []
         for pixel in self.pixels:
             keep_pixel = pixel.clip(start, end, algorithm)
@@ -613,18 +612,13 @@ class Line(Structure):
         return res
 
     def clip_cohen(self, start, end):
-        print("clip cohen line")
         x1, y1 = (self.start.x, self.start.y)
         x2, y2 = (self.end.x, self.end.y)
-
-        print("before: ", x1, y1, x2, y2)
 
         x_min = round(min(start[0], end[0]))
         x_max = round(max(start[0], end[0]))
         y_min = round(min(start[1], end[1]))
         y_max = round(max(start[1], end[1]))
-
-        print("min: ", x_min, y_min, "max: ", x_max, y_max)
 
         x_int = y_int = 0
 
@@ -635,8 +629,6 @@ class Line(Structure):
             c1 = self.cohen_get_code(x1, y1, x_min, x_max, y_min, y_max)
             c2 = self.cohen_get_code(x2, y2, x_min, x_max, y_min, y_max)
 
-            print(c1, c2)
-
             if c1 == 0 and c2 == 0:
                 accept = True
                 done = True
@@ -644,10 +636,6 @@ class Line(Structure):
                 done = True
             else:
                 c_out = c1 if c1 else c2
-
-                print(
-                    "c_out ", c_out, (c_out & 1), (c_out & 2), (c_out & 4), (c_out & 8)
-                )
 
                 # esq
                 if c_out & 1:
@@ -673,8 +661,6 @@ class Line(Structure):
                     x2 = x_int
                     y2 = y_int
 
-        print("after: ", x1, y1, x2, y2)
-
         if accept:
             self.start = Pixel((round(x1), round(y1)), self.color, False)
             self.end = Pixel((round(x2), round(y2)), self.color, False)
@@ -696,31 +682,28 @@ class Line(Structure):
         return code
 
     def clip_liang(self, start, end):
-        print("clip liang line")
         x1, y1 = (self.start.x, self.start.y)
         x2, y2 = (self.end.x, self.end.y)
 
-        print("before: ", x1, y1, x2, y2)
 
         x_min = round(min(start[0], end[0]))
         x_max = round(max(start[0], end[0]))
         y_min = round(min(start[1], end[1]))
         y_max = round(max(start[1], end[1]))
 
-        print("min: ", x_min, y_min, "max: ", x_max, y_max)
 
         u1 = 0
         u2 = 1
         dx = x2 - x1
         dy = y2 - y1
-        u1, u2, accept = self.clip_test(-dx, x1 - x_min, u1, u2)
+        u1, u2, accept = self.liang_clip_test(-dx, x1 - x_min, u1, u2)
 
         if accept:
-            u1, u2, accept = self.clip_test(dx, x_max - x1, u1, u2)
+            u1, u2, accept = self.liang_clip_test(dx, x_max - x1, u1, u2)
             if accept:
-                u1, u2, accept = self.clip_test(-dy, y1 - y_min, u1, u2)
+                u1, u2, accept = self.liang_clip_test(-dy, y1 - y_min, u1, u2)
                 if accept:
-                    u1, u2, accept = self.clip_test(dy, y_max - y1, u1, u2)
+                    u1, u2, accept = self.liang_clip_test(dy, y_max - y1, u1, u2)
                     if accept:
                         if u2 < 1:
                             x2 = x1 + u2 * dx
@@ -734,7 +717,7 @@ class Line(Structure):
 
         return not accept
 
-    def clip_test(self, p, q, u1, u2):
+    def liang_clip_test(self, p, q, u1, u2):
         r = 0
         ret_val = True
         if p < 0:
@@ -749,8 +732,7 @@ class Line(Structure):
                 ret_val = False
             elif r < u2:
                 u2 = r
-        else:
-            if q < 0:
+        elif q < 0:
                 ret_val = False
 
         return u1, u2, ret_val
