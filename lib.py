@@ -57,5 +57,5 @@ import math
 import tkinter as tk
 from tkinter.colorchooser import askcolor
 from constants import *
-from classes import *
+from classes import Paint
 # from functions import *

@@ -6,16 +6,20 @@ class Paint:
         self.master = master
         self.master.title("Paint")
 
-        self.color = "#000000"
-        self.first_click = None
-        self.draw_mode = "pixel"
-
-        self.create_canvas()
+        self.clear_canvas()
 
         self.position_label = tk.Label(self.master, text="X: 0, Y: 0")
-        self.position_label.grid(column=0, columnspan=5, row=3)
+        self.position_label.grid(column=2, columnspan=3, row=3)
 
         self.structures = []
+
+    def clear_canvas(self):
+        self.structures = []
+        self.first_click = None
+        self.clip_mode = None
+        self.draw_mode = "pixel"
+        self.color = "#000000"
+        self.create_canvas()
 
     def create_canvas(self):
         self.canvas = tk.Canvas(
@@ -90,7 +94,22 @@ class Paint:
 
         self.color_picker = tk.Button(
             text="Color Picker", command=lambda *args: self.change_color()
-        ).grid(column=4, row=2)
+        )
+        self.color_picker.grid(column=4, row=2)
+
+        self.clip_cohen_button = tk.Button(
+            self.master,
+            text="Clip (Cohen-Sutherland)",
+            command=lambda *args: self.set_clip_mode("cohen"),
+        )
+        self.clip_cohen_button.grid(column=0, row=3)
+
+        self.clip_liang_button = tk.Button(
+            self.master,
+            text="Clip (Liang-Barsky)",
+            command=lambda *args: self.set_clip_mode("liang"),
+        )
+        self.clip_liang_button.grid(column=1, row=3)
 
         self.canvas.bind("<Button-1>", self.on_click)
         self.canvas.bind("<Motion>", self.display_current_position)
@@ -253,11 +272,10 @@ class Paint:
         confirm_button.grid(column=0, columnspan=2, row=4)
 
     def reflect_structures(self, reflect_on_x, reflect_on_y, center_x, center_y):
-        self.create_canvas()
-
         center_x = int(center_x or 0)
-        center_y = int(center_x or 0)
+        center_y = int(center_y or 0)
 
+        self.create_canvas()
         for structure in self.structures:
             structure.reflect(reflect_on_x, reflect_on_y, center_x, center_y)
             structure.draw(self.canvas)
@@ -267,46 +285,70 @@ class Paint:
         if color:
             self.color = color[1]
 
-    def clear_canvas(self):
-        self.structures = []
-        self.first_click = None
-        self.draw_mode = "pixel"
-        self.create_canvas()
-
     def set_draw_mode(self, draw_mode):
+        self.clip_mode = None
         self.draw_mode = draw_mode
 
-    def on_click(self, event):
+    def set_clip_mode(self, clip_mode):
+        self.clip_mode = clip_mode
 
+    def draw_temporary_pixel(self, click):
+        temporary_pixel = Pixel(click, "#C7E1F6")
+        temporary_pixel.draw(self.canvas)
+
+    def on_click(self, event):
         click = (event.x, event.y)
-        if self.draw_mode == "pixel":
-            pixel = Pixel(click, self.color)
-            self.structures.append(pixel)
-            print(pixel)
+        recreate_canvas = False
+        if not self.clip_mode:
+            structure = None
+            if self.draw_mode == "pixel":
+                structure = Pixel(click, self.color)
+            elif self.first_click is None:
+                self.first_click = click
+                self.draw_temporary_pixel(click)
+            else:
+                if self.draw_mode == "line_dda" or self.draw_mode == "line_bres":
+                    structure = Line(
+                        self.first_click, click, self.color, self.draw_mode
+                    )
+                elif self.draw_mode == "circle_bres":
+                    radius = Circle.distance_between_two_points(self.first_click, click)
+                    structure = Circle(self.first_click, radius, self.color)
+
+                self.first_click = None
+
+            if structure:
+                self.structures.append(structure)
+                print(structure)
+                recreate_canvas = True
+
         else:
             if self.first_click is None:
                 self.first_click = click
+                self.draw_temporary_pixel(click)
             else:
-                if self.draw_mode == "line_dda":
-                    line = Line(self.first_click, click, self.color, "dda")
-                    line.get_line()
-                    self.structures.append(line)
-                    print(line)
-                elif self.draw_mode == "line_bres":
-                    line = Line(self.first_click, click, self.color, "bres")
-                    line.get_line()
-                    self.structures.append(line)
-                    print(line)
-                elif self.draw_mode == "circle_bres":
-                    radius = Circle.distance_between_two_points(self.first_click, click)
-                    circle = Circle(self.first_click, radius, self.color)
-                    self.structures.append(circle)
-                    print(circle)
-                self.first_click = None
+                if self.clip_mode == "cohen" or self.clip_mode == "liang":
+                    self.clip(self.first_click, click, self.clip_mode)
 
-        self.create_canvas()
+                self.first_click = None
+                recreate_canvas = True
+
+        if recreate_canvas:
+            self.create_canvas()
+            for structure in self.structures:
+                structure.draw(self.canvas)
+
+    def clip(self, start, end, algorithm):
+        start = Pixel.convert_to_grid(start)
+        end = Pixel.convert_to_grid(end)
+
+        new_structures = []
         for structure in self.structures:
-            structure.draw(self.canvas)
+            remove_structure = structure.clip(start, end, algorithm)
+            if not remove_structure:
+                new_structures.append(structure)
+
+        self.structures = new_structures
 
 
 class Pixel:
@@ -317,7 +359,7 @@ class Pixel:
             self.x, self.y = point
 
         self.color = color
-        
+
     def __repr__(self):
         return f"Pixel({self.x}, {self.y}, {self.color})"
 
@@ -373,11 +415,21 @@ class Pixel:
 
         self.translate(center_x, center_y)
 
+    def clip(self, start, end, algorithm):
+        min_x = round(min(start[0], end[0]))
+        max_x = round(max(start[0], end[0]))
+        min_y = round(min(start[1], end[1]))
+        max_y = round(max(start[1], end[1]))
+
+        return self.x < min_x or self.x > max_x or self.y < min_y or self.y > max_y
+
 
 class Structure:
     def __init__(self, pixels, color):
         self.pixels = pixels
         self.color = color
+
+        self.clipped = False
 
     def __repr__(self):
         return f"Structure(pixels=[{self.pixels}], color={self.color})"
@@ -415,22 +467,38 @@ class Structure:
 
             self.pixel.translate(center_x, center_y)
 
+    def clip(self, start, end, algorithm):
+        print("aaaa")
+        new_pixels = []
+        for pixel in self.pixels:
+            keep_pixel = pixel.clip(start, end, algorithm)
+            if not keep_pixel:
+                new_pixels.append(pixel)
+
+        self.clipped = True
+
+        self.pixels = new_pixels
+
+        return not new_pixels
+
 
 class Line(Structure):
-    def __init__(self, start, end, color, line_type="dda"):
+    def __init__(self, start, end, color, line_type="line_dda"):
         self.start = Pixel(start, color)
         self.end = Pixel(end, color)
         self.color = color
         self.pixels = []
         self.line_type = line_type
-        
+
+        self.get_line()
+
     def __repr__(self):
         return f"Line(start={self.start}, end={self.end}, color={self.color}, line_type={self.line_type})"
 
     def get_line(self):
-        if self.line_type == "dda":
+        if self.line_type == "line_dda":
             self.get_line_dda()
-        elif self.line_type == "bres":
+        elif self.line_type == "line_bres":
             self.get_line_bresenham()
 
     def get_line_dda(self):
@@ -534,6 +602,159 @@ class Line(Structure):
 
         self.get_line()
 
+    def clip(self, start, end, algorithm):
+        res = False
+
+        if algorithm == "cohen":
+            res = self.clip_cohen(start, end)
+        elif algorithm == "liang":
+            res = self.clip_liang(start, end)
+
+        return res
+
+    def clip_cohen(self, start, end):
+        print("clip cohen line")
+        x1, y1 = (self.start.x, self.start.y)
+        x2, y2 = (self.end.x, self.end.y)
+
+        print("before: ", x1, y1, x2, y2)
+
+        x_min = round(min(start[0], end[0]))
+        x_max = round(max(start[0], end[0]))
+        y_min = round(min(start[1], end[1]))
+        y_max = round(max(start[1], end[1]))
+
+        print("min: ", x_min, y_min, "max: ", x_max, y_max)
+
+        x_int = y_int = 0
+
+        accept = False
+        done = False
+
+        while not done:
+            c1 = self.cohen_get_code(x1, y1, x_min, x_max, y_min, y_max)
+            c2 = self.cohen_get_code(x2, y2, x_min, x_max, y_min, y_max)
+
+            print(c1, c2)
+
+            if c1 == 0 and c2 == 0:
+                accept = True
+                done = True
+            elif c1 & c2:
+                done = True
+            else:
+                c_out = c1 if c1 else c2
+
+                print(
+                    "c_out ", c_out, (c_out & 1), (c_out & 2), (c_out & 4), (c_out & 8)
+                )
+
+                # esq
+                if c_out & 1:
+                    x_int = x_min
+                    y_int = y1 + (y2 - y1) * (x_min - x1) / (x2 - x1)
+                # dir
+                elif c_out & 2:
+                    x_int = x_max
+                    y_int = y1 + (y2 - y1) * (x_max - x1) / (x2 - x1)
+                # inf
+                elif c_out & 4:
+                    y_int = y_min
+                    x_int = x1 + (x2 - x1) * (y_min - y1) / (y2 - y1)
+                # sup
+                elif c_out & 8:
+                    y_int = y_max
+                    x_int = x1 + (x2 - x1) * (y_max - y1) / (y2 - y1)
+
+                if c_out == c1:
+                    x1 = x_int
+                    y1 = y_int
+                else:
+                    x2 = x_int
+                    y2 = y_int
+
+        print("after: ", x1, y1, x2, y2)
+
+        if accept:
+            self.start = Pixel((round(x1), round(y1)), self.color, False)
+            self.end = Pixel((round(x2), round(y2)), self.color, False)
+            self.get_line()
+
+        return not accept
+
+    def cohen_get_code(self, x, y, x_min, x_max, y_min, y_max):
+        code = 0
+        if x < x_min:
+            code |= 1
+        elif x > x_max:
+            code |= 2
+        if y < y_min:
+            code |= 4
+        elif y > y_max:
+            code |= 8
+
+        return code
+
+    def clip_liang(self, start, end):
+        print("clip liang line")
+        x1, y1 = (self.start.x, self.start.y)
+        x2, y2 = (self.end.x, self.end.y)
+
+        print("before: ", x1, y1, x2, y2)
+
+        x_min = round(min(start[0], end[0]))
+        x_max = round(max(start[0], end[0]))
+        y_min = round(min(start[1], end[1]))
+        y_max = round(max(start[1], end[1]))
+
+        print("min: ", x_min, y_min, "max: ", x_max, y_max)
+
+        u1 = 0
+        u2 = 1
+        dx = x2 - x1
+        dy = y2 - y1
+        u1, u2, accept = self.clip_test(-dx, x1 - x_min, u1, u2)
+
+        if accept:
+            u1, u2, accept = self.clip_test(dx, x_max - x1, u1, u2)
+            if accept:
+                u1, u2, accept = self.clip_test(-dy, y1 - y_min, u1, u2)
+                if accept:
+                    u1, u2, accept = self.clip_test(dy, y_max - y1, u1, u2)
+                    if accept:
+                        if u2 < 1:
+                            x2 = x1 + u2 * dx
+                            y2 = y1 + u2 * dy
+                        if u1 > 0:
+                            x1 = x1 + u1 * dx
+                            y1 = y1 + u1 * dy
+                        self.start = Pixel((round(x1), round(y1)), self.color, False)
+                        self.end = Pixel((round(x2), round(y2)), self.color, False)
+                        self.get_line()
+
+        return not accept
+
+    def clip_test(self, p, q, u1, u2):
+        r = 0
+        ret_val = True
+        if p < 0:
+            r = q / p
+            if r > u2:
+                ret_val = False
+            elif r > u1:
+                u1 = r
+        elif p > 0:
+            r = q / p
+            if r < u1:
+                ret_val = False
+            elif r < u2:
+                u2 = r
+        else:
+            if q < 0:
+                ret_val = False
+
+        return u1, u2, ret_val
+
 
 class Circle(Structure):
     def __init__(self, center, radius, color):
@@ -541,6 +762,8 @@ class Circle(Structure):
         self.radius = radius
         self.color = color
         self.pixels = []
+
+        self.clipped = False
 
         self.get_circle()
 
@@ -583,15 +806,35 @@ class Circle(Structure):
         self.add_point((-x + xc, -y + yc))
         self.add_point((-y + xc, -x + yc))
 
+    def translate(self, x, y):
+        if not self.clipped:
+            self.center.translate(x, y)
+            self.get_circle()
+        else:
+            for pixel in self.pixels:
+                pixel.translate(x, y)
+
     def rotate(self, angle, center):
-        self.center.rotate(angle, center)
-        self.get_circle()
+        if not self.clipped:
+            self.center.rotate(angle, center)
+            self.get_circle()
+        else:
+            for pixel in self.pixels:
+                pixel.rotate(angle, center)
 
     def scale(self, x, y):
-        self.radius *= x
-        self.radius = round(self.radius)
-        self.get_circle()
+        if not self.clipped:
+            self.radius *= x
+            self.radius = round(self.radius)
+            self.get_circle()
+        else:
+            for pixel in self.pixels:
+                pixel.scale(x, y)
 
     def reflect(self, reflect_on_x, reflect_on_y, center_x, center_y):
-        self.center.reflect(reflect_on_x, reflect_on_y, center_x, center_y)
-        self.get_circle()
+        if not self.clipped:
+            self.center.reflect(reflect_on_x, reflect_on_y, center_x, center_y)
+            self.get_circle()
+        else:
+            for pixel in self.pixels:
+                pixel.reflect(reflect_on_x, reflect_on_y, center_x, center_y)
