@@ -2,6 +2,40 @@ from lib import *
 
 
 class Paint:
+    """
+    Classe principal com a interface do projeto.
+
+    Atributos:
+        master (Tk): O widget raíz da aplicação (classe Tk do Tkinter).
+        position_label (Label): Rótulo com a posição do cursor, apresentada no canto inferior direito e atualizada dinamicamente.
+        structures (list): Uma lista com todas as estruturas desenhadas no canvas.
+        first_click (tuple): A posição do primeiro click do usuário (usado para funcionalidades que usam dois clicks, como a criação de linhas, círculos e recortes).
+        clip_mode (str): O modo de recorte atual (Cohen-Sutherland ou Liang-Barsky).
+        draw_mode (str): O modo de desenho atual (pixel, linha DDA, linha Bresenham, círculo Bresenham).
+        color (str): A cor atual selecionada para desenho (pode ser alterada pelo usuário com o color picker).
+        canvas (Canvas): Basicamente onde tudo acontece.
+
+    Métodos:
+        __init__(self, master): Inicializa a interface gráfica do Paint.
+        clear_canvas(self): Limpa o canvas e reseta os atributos.
+        create_canvas(self): Cria o canvas, junto com os botões da aplicação e os valores padrões para cor e afins.
+        display_current_position(self, event): Atualiza o rótulo position_label com as coordenadas do cursor.
+        change_color(self): Abre um seletor de cores para alterar a cor de desenho.
+        set_draw_mode(self, draw_mode): Define o modo de desenho atual.
+        set_clip_mode(self, clip_mode): Define o modo de recorte atual.
+        draw_temporary_pixel(self, click): Desenha um pixel temporário (pontinho azul que aparece para as funcionalidades com dois clicks).
+        on_click(self, event): Lida com os clicks do usuário no canvas, executando a funcionalidade selecionada atualmente (draw_mode ou clip_mode).
+        clip(self, start, end, algorithm): Realiza o recorte das estruturas em uma área selecionada.
+        create_translate_dialog(self): Cria a janela da translação.
+        translate_structures(self, x, y): Translada todas as estruturas desenhadas. Executado no confirmar da janela de translação (assim como as outras transformações descritas a seguir).
+        create_rotate_dialog(self): Cria a janela da rotação.
+        rotate_structures(self, angle, center_x, center_y): Rotaciona todas as estruturas desenhadas.
+        create_scale_dialog(self): Cria a janela da escala.
+        scale_structures(self, scale_x, scale_y): Escala todas as estruturas desenhadas.
+        create_reflect_dialog(self): Cria a janela de reflexão.
+        reflect_structures(self, reflect_on_x, reflect_on_y, center_x, center_y): Reflete as estruturas desenhadas.
+    """
+
     def __init__(self, master):
         self.master = master
         self.master.title("Paint")
@@ -352,6 +386,41 @@ class Paint:
 
 
 class Pixel:
+    """
+    Representa um único pixel na tela.
+
+    Args:
+        point (tuple): As coordenadas x e y do pixel.
+        color (str): A cor do pixel.
+        convert (bool, optional): Indica se as coordenadas do pixel devem ser convertidas para
+            coordenadas da grade. Se True, o método `convert_to_grid` será chamado para converter
+            as coordenadas para coordenadas da grade. Caso contrário, as coordenadas serão usadas
+            diretamente. O padrão é True.
+
+    Atributos:
+        x (int): Coordenada x do pixel.
+        y (int): Coordenada y do pixel.
+        color (str): Cor do pixel.
+
+    Métodos:
+        __init__(self, point, color, convert=True): Inicializa um novo pixel.
+        draw(self, canvas): Desenha o pixel no canvas. Esse método é amplamente utilizado por
+                outras classes (por exemplo, o método `draw` da classe `Line` chama o método
+                `draw` da classe `Pixel` para cada pixel na linha).
+        convert_to_grid(pos): Método estático para converter as coordenadas reais da tela para
+                coordenadas da grade (valores especificados no arquivo `constants.py`).
+        translate(self, x, y): Translada o pixel adicionando os valores de x e y às suas
+                coordenadas.
+        rotate(self, angle, center): Rotaciona o pixel em torno de um ponto central.
+        scale(self, x, y): Escala a posição do pixel (multiplicação simples dos valores passados às
+                coordenadas).
+        reflect(self, reflect_on_x, reflect_on_y, center_x, center_y): Reflete o pixel em torno
+                do(s) eixo(s) especificado(s). Os valores de center_x e center_y representam o ponto
+                de origem do(s) eixo(s).
+        clip(self, start, end, algorithm): Realiza o recorte verificando se o pixel está dentro da
+                área especificada (Point Clipping).
+    """
+
     def __init__(self, point, color, convert=True):
         if convert:
             self.x, self.y = Pixel.convert_to_grid(point)
@@ -373,6 +442,7 @@ class Pixel:
             outline="",
         )
 
+    @staticmethod
     def convert_to_grid(pos):
         x, y = pos
         return x // PIXEL_SIZE, y // PIXEL_SIZE
@@ -425,6 +495,33 @@ class Pixel:
 
 
 class Structure:
+    """
+    Interface para as outras estruturas (linhas e círculos).
+
+    Args:
+        pixels (list): Lista de pixels que compõem a estrutura.
+        color (str): Cor da estrutura.
+
+    Atributos:
+        pixels (list): Lista de pixels que compõem a estrutura.
+        color (str): Cor da estrutura.
+        clipped (bool): Indica se a estrutura foi recortada ou não.
+
+    Métodos:
+        __init__(self, pixels, color): Cria uma nova estrutura recebendo uma lista de pixels
+                e uma cor.
+        add_point(self, point): Adiciona um novo ponto à estrutura.
+        clear_pixels(self): Remove o array de pixels da estrutura.
+        draw(self, canvas): Desenha a estrutura no canvas.
+        translate(self, x, y): Translada a estrutura em x e y.
+        rotate(self, angle, center): Rotaciona a estrutura em torno de um ponto central.
+        scale(self, x, y): Escala a estrutura horizontalmente e verticalmente.
+        reflect(self, reflect_on_x, reflect_on_y, center_x, center_y): Reflete a estrutura em
+                torno do eixo especificado.
+        clip(self, start, end, algorithm): Realiza o recorte da estrutura de acordo com a área
+                delimitada (também Point Clipping).
+    """
+
     def __init__(self, pixels, color):
         self.pixels = pixels
         self.color = color
@@ -482,6 +579,47 @@ class Structure:
 
 
 class Line(Structure):
+    """
+    Representa uma linha desenhada entre dois pontos (ou feita com DDA, ou com Bresenham).
+
+    Args:
+        start (tuple): As coordenadas (x, y) do ponto inicial da linha.
+        end (tuple): As coordenadas (x, y) do ponto final da linha.
+        color (str): A cor da linha.
+        line_type (str, optional): O algoritmo utilizado para desenhar a linha. Por padrão é
+                selecionado o DDA.
+
+    Atributos:
+        start: Posição do início da linha (objeto Pixel).
+        end: Posição do final da linha.
+        line_type: Algoritmo utilizado para desenhar a linha (DDA ou Bresenham).
+
+    Métodos:
+        __init__(self, start, end, color, line_type="line_dda"): Inicializa uma nova linha com um
+                ponto inicial e final, cor e tipo da linha.
+        get_line(self): Encontra os pixels que formam a linha (de acordo com o atributo line_type).
+        get_line_dda(self): Utiliza o algoritmo DDA para traçar a linha.
+        get_line_bresenham(self): Utiliza o algoritmo de Bresenham para traçar a linha.
+        translate(self, x, y): Translada os pontos de início e fim da linha, e depois gera a linha
+                novamente.
+        rotate(self, angle, center): Rotaciona a linha em torno de um ponto central (rotaciona ambos
+                os pontos e gera de novo a linha).
+        scale(self, x, y): Escala a linha horizontalmente e verticalmente (simula a translação da
+                linha para a origem diminuindo as coordenadas do ponto inicial no ponto final,
+                escala a posição do ponto final, inverte a translação e depois gera a linha de novo
+                com base no novo ponto final).
+        reflect(self, reflect_on_x, reflect_on_y, center_x, center_y): Reflete a linha em torno de
+                um eixo especificado (reflete os pontos de início e fim e gera de novo a linha).
+        clip(self, start, end, algorithm): Recorta a linha a partir da área entre dois pontos
+                utilizando ou Cohen-Sutherland (método `clip_cohen`) ou Liang-Barsky (método
+                `clip_liang`). Usei as implementações do livro (Computer Graphics C version).
+        clip_cohen(self, start, end): Implementação do método de Cohen-Sutherland.
+        cohen_get_code(self, x, y, x_min, x_max, y_min, y_max): Calcula o código do vértice.
+        clip_liang(self, start, end): Implementação do método de Liang-Barsky.
+        liang_clip_test(self, p, q, u1, u2): Calcula se a linha deve ser rejeitada ou se os
+                parâmetros de interseção devem ser ajustados.
+    """
+
     def __init__(self, start, end, color, line_type="line_dda"):
         self.start = Pixel(start, color)
         self.end = Pixel(end, color)
@@ -685,12 +823,10 @@ class Line(Structure):
         x1, y1 = (self.start.x, self.start.y)
         x2, y2 = (self.end.x, self.end.y)
 
-
         x_min = round(min(start[0], end[0]))
         x_max = round(max(start[0], end[0]))
         y_min = round(min(start[1], end[1]))
         y_max = round(max(start[1], end[1]))
-
 
         u1 = 0
         u2 = 1
@@ -733,12 +869,43 @@ class Line(Structure):
             elif r < u2:
                 u2 = r
         elif q < 0:
-                ret_val = False
+            ret_val = False
 
         return u1, u2, ret_val
 
 
 class Circle(Structure):
+    """
+    Representa um círculo através de um centro e um raio.
+
+    Args:
+        center (tuple): O centro do círculo.
+        radius (float): O raio do círculo.
+        color (str): A cor do círculo.
+
+    Atributos:
+        center (Pixel): O centro do círculo.
+        radius (float): O raio do círculo.
+        color (str): A cor do círculo.
+        pixels (list): A lista com os pixels do círculo (após serem gerados com o get_circle).
+        clipped (bool): Indica se o círculo foi recortado (algumas mudanças são feitas nas
+                transformações caso isso seja verdadeiro - não era um requisito do projeto
+                mas ficou mais bem apresentável assim enquanto não temos um algoritmo de
+                recorte para círculos/polígonos).
+
+    Métodos:
+        __init__(self, center, radius, color):  Inicializa um novo círculo com centro, raio e
+                cor especificados.
+        get_circle(self): Calcula os pixels que formam o círculo.
+        plot_points(self, xc, yc, x, y): Adiciona os pontos do círculo à estrutura.
+        translate(self, x, y): Translada o ponto central do círculo.
+        rotate(self, angle, center): Rotaciona o ponto central do círculo.
+        scale(self, x, y):  Multiplica o tamanho do raio do círculo (apenas o x é usado, porém
+                o método recebe tanto x quanto y para manter os parâmetros iguais para todas as
+                classes que estendem Structure).
+        reflect(self, reflect_on_x, reflect_on_y, center_x, center_y): Reflete o centro do círculo.
+    """
+
     def __init__(self, center, radius, color):
         self.center = Pixel(center, color)
         self.radius = radius
