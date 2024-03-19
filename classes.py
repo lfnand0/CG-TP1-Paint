@@ -567,8 +567,8 @@ class Structure:
     def clip(self, start, end, algorithm):
         new_pixels = []
         for pixel in self.pixels:
-            keep_pixel = pixel.clip(start, end, algorithm)
-            if not keep_pixel:
+            remove_pixel = pixel.clip(start, end, algorithm)
+            if not remove_pixel:
                 new_pixels.append(pixel)
 
         self.clipped = True
@@ -727,9 +727,7 @@ class Line(Structure):
     def scale(self, x, y):
         self.end.translate(-1 * self.start.x, -1 * self.start.y)
         self.end.scale(x, y)
-        self.end = Pixel(
-            (self.end.x + self.start.x, self.end.y + self.start.y), self.color, False
-        )
+        self.end.translate(self.start.x, self.start.y)
 
         self.get_line()
 
@@ -919,6 +917,7 @@ class Circle(Structure):
     def __repr__(self):
         return f"Circle(center={self.center}, radius={self.radius}, color={self.color})"
 
+    @staticmethod
     def distance_between_two_points(start, end):
         x1, y1 = Pixel.convert_to_grid(start)
         x2, y2 = Pixel.convert_to_grid(end)
