@@ -14,11 +14,11 @@ Para rodar o código, siga as informações abaixo.
 
     O script irá tentar baixar automaticamente o pip. Caso isso não seja possível, tente o seguinte:
 
-#### Linux ou MacOS
+  * #### Linux ou MacOS
 
     ``` python -m ensurepip --upgrade ```
 
-#### Windows
+  * #### Windows
 
     ``` py -m ensurepip --upgrade ```
 
@@ -35,23 +35,23 @@ Para rodar o código, siga as informações abaixo.
     No Windows, o Tkinter vem baixado por padrão para as versões do Python 3.11.6 ou superior.
     Caso o código reclame da falta do tkinter ao executar, faça o seguinte:
 
-#### MacOS (usando brew)
+  * #### MacOS (usando brew)
 
     ``` brew install tkinter ```
 
-#### Linux (Debian)
+  * #### Linux (Debian)
 
     ``` sudo apt-get install python-tk ```
 
-#### Linux (Arch)
+  * #### Linux (Arch)
 
     ``` sudo pacman -S tk ```
 
-#### Linux (Fedora)
+  * #### Linux (Fedora)
 
     ``` sudo dnf install python3-tkinter ```
 
-#### Linux (RHEL, CentOS, Oracle)
+  * #### Linux (RHEL, CentOS, Oracle)
 
     ``` sudo yum install -y tkinter tk-devel ```
 
