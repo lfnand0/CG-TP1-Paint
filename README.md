@@ -1,4 +1,6 @@
 # CG-TP1-Paint
+## Vídeo de apresentação
+[Computação Gráfica - Apresentação Trabalho Prático 1](https://youtu.be/J7RGMm1Sy5I)
 
 ## Instalação
 
